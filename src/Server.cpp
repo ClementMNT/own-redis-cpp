@@ -7,6 +7,22 @@
 #include <sys/socket.h>
 #include <arpa/inet.h>
 #include <netdb.h>
+#include <vector>
+#include <algorithm>
+
+void handle_client(int client_fd) {
+  char pong[] = "+PONG\r\n";
+  while (true) {
+    char buf[1024];
+    int rc = recv(client_fd, &buf, sizeof(buf), 0);
+    if (rc <= 0) {
+      close(client_fd);
+      break;
+    }
+    send(client_fd, pong, strlen(pong), 0);
+  }
+}
+
 
 int main(int argc, char **argv) {
   // You can use print statements as follows for debugging, they'll be visible when running tests.
@@ -48,23 +64,47 @@ int main(int argc, char **argv) {
   int client_addr_len = sizeof(client_addr);
   
   std::cout << "Waiting for a client to connect...\n";
-  
-  int client_fd = accept(server_fd, (struct sockaddr *) &client_addr, (socklen_t *) &client_addr_len);
-  std::cout << "Client connected\n";
 
-  char pong[] = "+PONG\r\n";
-  while (true) {
-    char buf[1024];
-    int rc = recv(client_fd, &buf, sizeof(buf), 0);
-    if (rc <= 0) {
-      close(client_fd);
-      break;
+  fd_set master_set;
+  fd_set read_fds;
+  int max_fd = server_fd;
+
+  FD_ZERO(&master_set);
+  FD_SET(server_fd, &master_set);
+
+  while(true) {
+    read_fds = master_set;
+    if (select(max_fd + 1, &read_fds, NULL, NULL, NULL) == -1) {
+      std::cerr << "select failed\n";
+      return 1;
     }
-    send(client_fd, pong, strlen(pong), 0);
+
+    for (int i = 0; i <= max_fd; i++) {
+      if (FD_ISSET(i, &read_fds)) {
+        if (i == server_fd) {
+          int client_fd = accept(server_fd, (struct sockaddr *) &client_addr, (socklen_t *) &client_addr_len);
+          if (client_fd == -1) {
+            std::cerr << "accept failed\n";
+          } else {
+            FD_SET(client_fd, &master_set);
+            max_fd = std::max(max_fd, client_fd);
+            std::cout << "Client connected\n";
+          }
+        } else {
+          handle_client(i);
+          close(i);
+          FD_CLR(i, &master_set);
+        }
+      }
+    }
   }
+  
+  // int client_fd = accept(server_fd, (struct sockaddr *) &client_addr, (socklen_t *) &client_addr_len);
+  // std::cout << "Client connected\n";
+
+  // handle_client(client_fd);
 
   close(server_fd);
-  close(client_fd);
 
   return 0;
 }
