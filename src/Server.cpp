@@ -52,9 +52,7 @@ int main(int argc, char **argv) {
   int client_fd = accept(server_fd, (struct sockaddr *) &client_addr, (socklen_t *) &client_addr_len);
   std::cout << "Client connected\n";
 
-  send(client_fd, "+PONG\r\n", 7, 0);
-
-  char *pong = "+PONG\r\n";
+  char pong[] = "+PONG\r\n";
   while (true) {
     char buf[1024];
     int rc = recv(client_fd, &buf, sizeof(buf), 0);
