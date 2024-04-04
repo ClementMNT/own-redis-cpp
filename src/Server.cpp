@@ -54,7 +54,19 @@ int main(int argc, char **argv) {
 
   send(client_fd, "+PONG\r\n", 7, 0);
 
+  char *pong = "+PONG\r\n";
+  while (true) {
+    char buf[1024];
+    int rc = recv(client_fd, &buf, sizeof(buf), 0);
+    if (rc <= 0) {
+      close(client_fd);
+      break;
+    }
+    send(client_fd, pong, strlen(pong), 0);
+  }
+
   close(server_fd);
+  close(client_fd);
 
   return 0;
 }
