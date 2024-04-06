@@ -1,5 +1,5 @@
 #pragma once
-#include "./Parser.hpp"
+#include "./Parser.cpp"
 #include <iostream>
 #include <cstdlib>
 #include <string>

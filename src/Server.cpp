@@ -1,5 +1,4 @@
 #include "./Server.hpp"
-#include "./Parser.hpp"
 
 std::string stringToBulk(const std::string &str) {
 	return "$" + std::to_string(str.size()) + "\r\n" + str + "\r\n";
