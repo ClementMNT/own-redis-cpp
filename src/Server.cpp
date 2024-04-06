@@ -1,27 +1,56 @@
-#include <iostream>
-#include <cstdlib>
-#include <string>
-#include <cstring>
-#include <unistd.h>
-#include <sys/types.h>
-#include <sys/socket.h>
-#include <arpa/inet.h>
-#include <netdb.h>
-#include <vector>
-#include <algorithm>
+#include "./Server.hpp"
+#include "./Parser.hpp"
 
-int handle_client(int client_fd) {
-	char pong[] = "+PONG\r\n";
-	char buf[1024];
-	int rc = recv(client_fd, &buf, sizeof(buf), 0);
-	if (rc <= 0) {
-		close(client_fd);
-		return 84;
+std::string stringToBulk(const std::string &str) {
+	return "$" + std::to_string(str.size()) + "\r\n" + str + "\r\n";
+}
+
+void cmdEcho(int client_fd, const std::vector<std::string> &args) {
+	if (args.size() != 2) {
+		send(client_fd, "-ERR wrong number of arguments for 'echo' command\r\n", 47, 0);
 	} else {
-		send(client_fd, pong, strlen(pong), 0);
-		return 0;
+		std::string response = stringToBulk(args[1]);
+		send(client_fd, response.c_str(), response.size(), 0);
 	}
 }
+
+void cmdPing(int client_fd, const std::vector<std::string> &args) {
+	if (args.size() > 2) {
+		send(client_fd, "-ERR wrong number of arguments for 'ping' command\r\n", 47, 0);
+	} else {
+		std::string response = "+PONG\r\n";
+		send(client_fd, response.c_str(), response.size(), 0);
+	}
+}
+
+int handle_client(int client_fd) {
+    char buffer[1024];
+    int bytes_received = recv(client_fd, buffer, sizeof(buffer), 0);
+    if (bytes_received <= 0) {
+        return 84;
+    }
+
+    std::string request(buffer, bytes_received);
+    RedisParser parser(request);
+    std::vector<std::string> args = parser.parse();
+
+    if (args.empty()) {
+        send(client_fd, args[0].c_str(), args[0].size(), 0);
+        return 0;
+    }
+
+    std::string command = args[0];
+    std::transform(command.begin(), command.end(), command.begin(), ::tolower);
+	if (command == "echo") {
+		cmdEcho(client_fd, args);
+	} else if (command == "ping") {
+		cmdPing(client_fd, args);
+	} else {
+		send(client_fd, args[0].c_str(), args[0].size(), 0);
+	}
+    return 0;
+}
+
 
 
 int main(int argc, char **argv) {
